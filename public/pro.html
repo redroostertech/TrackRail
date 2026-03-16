@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrackRail - PRO Registration</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <aside id="sidebar" class="sidebar"></aside>
+  <main class="main-content">
+    <div class="page-header">
+      <h2>PRO Registration</h2>
+    </div>
+    <div class="page-body">
+      <p class="text-sm text-secondary mb-4">Track your ASCAP, BMI, or SESAC work registrations.</p>
+
+      <div class="card mb-4">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Register Work</h3>
+        <div class="flex gap-4">
+          <div class="form-group" style="flex:1">
+            <label>Release</label>
+            <select id="pro-release" onchange="loadProTracks()">
+              <option value="">-- Select --</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>Track</label>
+            <select id="pro-track">
+              <option value="">-- Select --</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>PRO</label>
+            <select id="pro-name">
+              <option value="ascap">ASCAP</option>
+              <option value="bmi">BMI</option>
+              <option value="sesac">SESAC</option>
+            </select>
+          </div>
+          <div style="padding-top:22px">
+            <button class="btn btn-primary" onclick="createProReg()">Create</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="pro-table"></div>
+    </div>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/dropdown.js"></script>
+  <script src="/js/pro.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+node_modules/
+src/uploads/*
+!src/uploads/.gitkeep
+*.db
+.env
+public/css/tailwind-output.css

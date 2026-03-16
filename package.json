@@ -1,0 +1,28 @@
+{
+  "name": "trackrail",
+  "version": "1.0.0",
+  "description": "TrackRail — AI-powered music release infrastructure platform",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "npx nodemon src/index.js",
+    "css": "npx tailwindcss -i public/css/tailwind.css -o public/css/tailwind-output.css --watch",
+    "build:css": "npx tailwindcss -i public/css/tailwind.css -o public/css/tailwind-output.css --minify"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^5.1.0",
+    "multer": "^1.4.5-lts.1",
+    "openai": "^4.73.0",
+    "uuid": "^9.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.0",
+    "nodemon": "^3.1.14",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0"
+  }
+}

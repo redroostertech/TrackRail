@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrackRail - Split Sheets</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <aside id="sidebar" class="sidebar"></aside>
+  <main class="main-content">
+    <div class="page-header">
+      <h2>Split Sheets</h2>
+      <button class="btn btn-secondary" onclick="manageCollaborators()">Manage Collaborators</button>
+    </div>
+    <div class="page-body">
+      <div class="flex gap-4 mb-4">
+        <div class="form-group" style="flex:1">
+          <label>Select Release</label>
+          <select id="split-release" onchange="loadSplitTracks()">
+            <option value="">-- Select release --</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Select Track</label>
+          <select id="split-track" onchange="loadSplits()">
+            <option value="">-- Select track --</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="split-editor" class="hidden">
+        <div class="flex gap-4">
+          <div style="flex:2">
+            <div class="card mb-4">
+              <div class="flex items-center justify-between mb-4">
+                <h3 style="font-size:14px;font-weight:600">Current Splits</h3>
+                <div class="flex gap-2">
+                  <button class="btn btn-secondary btn-sm" onclick="suggestSplits()">AI Suggest</button>
+                  <button class="btn btn-primary btn-sm" onclick="addSplit()">Add Split</button>
+                </div>
+              </div>
+              <div id="splits-list"></div>
+              <div id="split-total" class="mt-4"></div>
+            </div>
+
+            <div class="flex gap-2">
+              <button class="btn btn-secondary" onclick="validateSplits()">Validate</button>
+              <button class="btn btn-secondary" onclick="exportSheet()">Export Split Sheet</button>
+            </div>
+          </div>
+
+          <div style="flex:1">
+            <div class="card">
+              <h3 style="font-size:14px;font-weight:600;margin-bottom:12px">Split Visualization</h3>
+              <canvas id="split-chart" width="200" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/dropdown.js"></script>
+  <script src="/js/splits.js"></script>
+</body>
+</html>
