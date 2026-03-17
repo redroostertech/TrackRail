@@ -7,7 +7,10 @@
     "start": "node src/index.js",
     "dev": "npx nodemon src/index.js",
     "css": "npx tailwindcss -i public/css/tailwind.css -o public/css/tailwind-output.css --watch",
-    "build:css": "npx tailwindcss -i public/css/tailwind.css -o public/css/tailwind-output.css --minify"
+    "build:css": "npx tailwindcss -i public/css/tailwind.css -o public/css/tailwind-output.css --minify",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
@@ -21,8 +24,10 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.0",
+    "jest": "^30.3.0",
     "nodemon": "^3.1.14",
     "postcss": "^8.4.0",
+    "supertest": "^7.2.2",
     "tailwindcss": "^3.4.0"
   }
 }

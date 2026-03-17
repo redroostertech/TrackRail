@@ -33,6 +33,11 @@ app.use('/api/v1/events', require('./services/events/events.routes'));
 app.use('/api/v1/decisions', require('./services/decisions/decisions.routes'));
 app.use('/api/v1/identifiers', require('./services/identifiers/identifiers.routes'));
 
+// Validation engine (Phase 1A)
+const { validationRouter, releaseValidationRouter } = require('./services/validation/validation.routes');
+app.use('/api/v1/validation', validationRouter);
+app.use('/api/v1/releases', releaseValidationRouter);
+
 // Artist profile
 const { getDb } = require('./database');
 app.get('/api/v1/artist', (req, res) => {

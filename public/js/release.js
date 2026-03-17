@@ -8,16 +8,18 @@ async function loadRelease() {
   if (!releaseId) { window.location = '/'; return; }
 
   try {
-    const [releaseRes, tracksRes, checklistRes] = await Promise.all([
+    const [releaseRes, tracksRes, checklistRes, validationRes] = await Promise.all([
       api.get('/releases/' + releaseId),
       api.get('/releases/' + releaseId + '/tracks'),
-      api.get('/releases/' + releaseId + '/checklist')
+      api.get('/releases/' + releaseId + '/checklist'),
+      api.get('/releases/' + releaseId + '/validation').catch(() => ({ data: null }))
     ]);
 
     currentRelease = releaseRes.data;
     renderRelease(currentRelease);
     renderTracks(tracksRes.data);
     renderChecklist(checklistRes.data.checklist);
+    renderValidation(validationRes.data);
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -109,6 +111,7 @@ function renderChecklist(checklist) {
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.getElementById('tab-tracks').classList.toggle('hidden', tab !== 'tracks');
+  document.getElementById('tab-validation').classList.toggle('hidden', tab !== 'validation');
   document.getElementById('tab-checklist').classList.toggle('hidden', tab !== 'checklist');
 }
 
@@ -225,6 +228,147 @@ async function deleteRelease() {
     await api.delete('/releases/' + releaseId);
     showToast('Release deleted', 'success');
     window.location = '/';
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ---- Validation Panel ----
+
+function renderValidation(data) {
+  const el = document.getElementById('validation-panel');
+
+  if (!data) {
+    el.innerHTML = `
+      <div class="flex items-center justify-between mb-4">
+        <h3 style="font-size:14px;font-weight:600">Validation</h3>
+        <button class="btn btn-primary btn-sm" onclick="runValidation()">
+          ${icon('sparkle', 14)} Run Validation
+        </button>
+      </div>
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <h3>No validation runs yet</h3>
+        <p>Run validation to check your release metadata against industry standards.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const { run, results, decision } = data;
+  const errors = results.filter(r => r.status === 'fail');
+  const warnings = results.filter(r => r.status === 'warning');
+  const infos = results.filter(r => r.status === 'info');
+  const passed = results.filter(r => r.status === 'pass');
+  const skipped = results.filter(r => r.status === 'skipped');
+
+  const decisionBadge = decision
+    ? `<span class="badge badge-${decision.outcome}">${decision.outcome}</span>`
+    : '';
+
+  const scoreColor = run.score >= 80 ? 'var(--success)' : run.score >= 50 ? 'var(--warning)' : 'var(--error)';
+
+  el.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <h3 style="font-size:14px;font-weight:600">Validation</h3>
+        <span class="validation-score" style="color:${scoreColor}">${run.score}</span>
+        ${decisionBadge}
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-muted">Last run: ${formatDate(run.run_at)}</span>
+        <button class="btn btn-primary btn-sm" onclick="runValidation()">
+          ${icon('sparkle', 14)} Re-run
+        </button>
+      </div>
+    </div>
+
+    <div class="stat-grid mb-4">
+      <div class="stat-card"><div class="stat-label">Errors</div><div class="stat-value" style="color:var(--error)">${run.failed}</div></div>
+      <div class="stat-card"><div class="stat-label">Warnings</div><div class="stat-value" style="color:var(--warning)">${run.warnings}</div></div>
+      <div class="stat-card"><div class="stat-label">Passed</div><div class="stat-value" style="color:var(--success)">${run.passed}</div></div>
+      <div class="stat-card"><div class="stat-label">Score</div><div class="stat-value" style="color:${scoreColor}">${run.score}%</div></div>
+    </div>
+
+    ${errors.length ? renderResultSection('Errors', errors, 'error') : ''}
+    ${warnings.length ? renderResultSection('Warnings', warnings, 'warning') : ''}
+    ${infos.length ? renderResultSection('Info', infos, 'info') : ''}
+    ${passed.length ? `
+      <details class="mt-4">
+        <summary class="text-sm text-muted" style="cursor:pointer">Passed (${passed.length})</summary>
+        <div class="mt-2">${passed.map(r => renderResultItem(r, 'pass')).join('')}</div>
+      </details>
+    ` : ''}
+    ${skipped.length ? `
+      <details class="mt-4">
+        <summary class="text-xs text-muted" style="cursor:pointer">Skipped (${skipped.length})</summary>
+        <div class="mt-2">${skipped.map(r => renderResultItem(r, 'skipped')).join('')}</div>
+      </details>
+    ` : ''}
+  `;
+}
+
+function renderResultSection(title, results, type) {
+  return `
+    <div class="mb-4">
+      <div class="flex items-center gap-2 mb-2">
+        <h4 style="font-size:13px;font-weight:600">${title}</h4>
+        <span class="badge badge-${type === 'error' ? 'rejected' : type === 'warning' ? 'submitted' : 'metadata'}">${results.length}</span>
+      </div>
+      ${results.map(r => renderResultItem(r, type)).join('')}
+    </div>
+  `;
+}
+
+function renderResultItem(r, type) {
+  const borderClass = type === 'error' ? 'validation-result-error'
+    : type === 'warning' ? 'validation-result-warning'
+    : type === 'info' ? 'validation-result-info'
+    : type === 'pass' ? 'validation-result-pass'
+    : 'validation-result-skipped';
+
+  const ackButton = (type === 'warning' || type === 'info') && !r.acknowledged
+    ? `<button class="btn btn-ghost btn-sm" onclick="acknowledgeResult('${r.id}')">Dismiss</button>`
+    : r.acknowledged
+    ? '<span class="text-xs text-muted">Dismissed</span>'
+    : '';
+
+  return `
+    <div class="validation-result ${borderClass}">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="result-code">${r.result_code}</span>
+          <span class="text-sm">${r.message}</span>
+        </div>
+        ${ackButton}
+      </div>
+      <div class="flex items-center gap-3 mt-1">
+        ${r.field_path ? `<span class="validation-field-path">${r.field_path}</span>` : ''}
+        ${r.actual_value !== null && r.actual_value !== undefined ? `<span class="text-xs text-muted">Value: "${r.actual_value}"</span>` : ''}
+      </div>
+      ${r.suggested_fix && type !== 'pass' ? `<div class="validation-fix">${r.suggested_fix}</div>` : ''}
+    </div>
+  `;
+}
+
+async function runValidation() {
+  showToast('Running validation...', 'info');
+  try {
+    const res = await api.post('/releases/' + releaseId + '/validate');
+    showToast('Validation complete!', 'success');
+    renderValidation(res.data);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function acknowledgeResult(resultId) {
+  try {
+    await api.put('/validation/results/' + resultId + '/acknowledge');
+    showToast('Result dismissed', 'success');
+    // Reload validation data
+    const res = await api.get('/releases/' + releaseId + '/validation');
+    renderValidation(res.data);
   } catch (err) {
     showToast(err.message, 'error');
   }
