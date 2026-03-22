@@ -843,6 +843,42 @@ tr:hover td {
 .badge-blocked { background: var(--error-light); color: var(--error); }
 .badge-pending_review { background: var(--info-light); color: var(--info); }
 
+/* Normalization Suggestions */
+.normalization-suggestion {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+}
+
+.normalization-suggestion-pending { border-left: 3px solid var(--warning); }
+.normalization-suggestion-accepted { border-left: 3px solid var(--success); opacity: 0.6; }
+.normalization-suggestion-rejected { border-left: 3px solid var(--text-muted); opacity: 0.4; }
+
+.normalization-diff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.norm-original {
+  color: var(--error);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.norm-arrow {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.norm-normalized {
+  color: var(--success);
+  font-weight: 500;
+}
+
 /* Utility */
 .flex { display: flex; }
 .items-center { align-items: center; }

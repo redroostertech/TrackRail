@@ -8,11 +8,12 @@ async function loadRelease() {
   if (!releaseId) { window.location = '/'; return; }
 
   try {
-    const [releaseRes, tracksRes, checklistRes, validationRes] = await Promise.all([
+    const [releaseRes, tracksRes, checklistRes, validationRes, normalizationRes] = await Promise.all([
       api.get('/releases/' + releaseId),
       api.get('/releases/' + releaseId + '/tracks'),
       api.get('/releases/' + releaseId + '/checklist'),
-      api.get('/releases/' + releaseId + '/validation').catch(() => ({ data: null }))
+      api.get('/releases/' + releaseId + '/validation').catch(() => ({ data: null })),
+      api.get('/releases/' + releaseId + '/normalization').catch(() => ({ data: null }))
     ]);
 
     currentRelease = releaseRes.data;
@@ -20,6 +21,7 @@ async function loadRelease() {
     renderTracks(tracksRes.data);
     renderChecklist(checklistRes.data.checklist);
     renderValidation(validationRes.data);
+    renderNormalization(normalizationRes.data);
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -112,6 +114,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.getElementById('tab-tracks').classList.toggle('hidden', tab !== 'tracks');
   document.getElementById('tab-validation').classList.toggle('hidden', tab !== 'validation');
+  document.getElementById('tab-normalize').classList.toggle('hidden', tab !== 'normalize');
   document.getElementById('tab-checklist').classList.toggle('hidden', tab !== 'checklist');
 }
 
@@ -369,6 +372,160 @@ async function acknowledgeResult(resultId) {
     // Reload validation data
     const res = await api.get('/releases/' + releaseId + '/validation');
     renderValidation(res.data);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// ---- Normalization Panel ----
+
+function renderNormalization(data) {
+  const el = document.getElementById('normalization-panel');
+
+  if (!data) {
+    el.innerHTML = `
+      <div class="flex items-center justify-between mb-4">
+        <h3 style="font-size:14px;font-weight:600">Normalize Metadata</h3>
+        <button class="btn btn-primary btn-sm" onclick="runNormalizationEngine()">
+          ${icon('sparkle', 14)} Run Normalization
+        </button>
+      </div>
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <h3>No normalization runs yet</h3>
+        <p>Normalize your metadata to match industry standards — genres, titles, moods, keys, and more.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const { run, suggestions } = data;
+  const pending = suggestions.filter(s => s.status === 'pending');
+  const accepted = suggestions.filter(s => s.status === 'accepted');
+  const rejected = suggestions.filter(s => s.status === 'rejected');
+
+  el.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <h3 style="font-size:14px;font-weight:600">Normalize Metadata</h3>
+        <span class="text-xs text-muted">${run.total_suggestions} suggestion${run.total_suggestions !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        ${pending.length > 0 ? `<button class="btn btn-primary btn-sm" onclick="acceptAllNormalization()">Accept All (${pending.length})</button>` : ''}
+        <button class="btn btn-secondary btn-sm" onclick="runNormalizationEngine()">Re-run</button>
+      </div>
+    </div>
+
+    <div class="stat-grid mb-4">
+      <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${run.total_suggestions}</div></div>
+      <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:var(--warning)">${run.pending}</div></div>
+      <div class="stat-card"><div class="stat-label">Accepted</div><div class="stat-value" style="color:var(--success)">${run.accepted}</div></div>
+      <div class="stat-card"><div class="stat-label">Rejected</div><div class="stat-value" style="color:var(--text-muted)">${run.rejected}</div></div>
+    </div>
+
+    ${pending.length > 0 ? `
+      <div class="mb-4">
+        <h4 style="font-size:13px;font-weight:600;margin-bottom:8px">Pending Suggestions</h4>
+        ${pending.map(s => renderSuggestionItem(s)).join('')}
+      </div>
+    ` : ''}
+
+    ${accepted.length > 0 ? `
+      <details class="mb-4">
+        <summary class="text-sm text-muted" style="cursor:pointer">Accepted (${accepted.length})</summary>
+        <div class="mt-2">${accepted.map(s => renderSuggestionItem(s)).join('')}</div>
+      </details>
+    ` : ''}
+
+    ${rejected.length > 0 ? `
+      <details class="mb-4">
+        <summary class="text-sm text-muted" style="cursor:pointer">Rejected (${rejected.length})</summary>
+        <div class="mt-2">${rejected.map(s => renderSuggestionItem(s)).join('')}</div>
+      </details>
+    ` : ''}
+
+    ${suggestions.length === 0 ? '<p class="text-sm text-muted">No normalization suggestions — metadata looks clean!</p>' : ''}
+  `;
+}
+
+function renderSuggestionItem(s) {
+  const isPending = s.status === 'pending';
+  const borderClass = isPending ? 'normalization-suggestion-pending'
+    : s.status === 'accepted' ? 'normalization-suggestion-accepted'
+    : 'normalization-suggestion-rejected';
+
+  const confidenceBadge = s.confidence < 1.0
+    ? `<span class="text-xs text-muted">${Math.round(s.confidence * 100)}% confidence</span>`
+    : '';
+
+  const actions = isPending ? `
+    <div class="flex gap-2">
+      <button class="btn btn-primary btn-sm" onclick="acceptNormSuggestion('${s.id}')">Accept</button>
+      <button class="btn btn-ghost btn-sm" onclick="rejectNormSuggestion('${s.id}')">Reject</button>
+    </div>
+  ` : `<span class="badge badge-${s.status === 'accepted' ? 'released' : 'draft'}">${s.status}</span>`;
+
+  return `
+    <div class="normalization-suggestion ${borderClass}">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="result-code">${s.rule_applied}</span>
+          ${s.field_path ? `<span class="validation-field-path">${s.field_path}</span>` : ''}
+          ${confidenceBadge}
+        </div>
+        ${actions}
+      </div>
+      <div class="normalization-diff mt-2">
+        <span class="norm-original">${s.original_value || '(empty)'}</span>
+        <span class="norm-arrow">&rarr;</span>
+        <span class="norm-normalized">${s.normalized_value}</span>
+      </div>
+      ${s.reasoning ? `<div class="text-xs text-muted mt-1">${s.reasoning}</div>` : ''}
+    </div>
+  `;
+}
+
+async function runNormalizationEngine() {
+  showToast('Running normalization...', 'info');
+  try {
+    const res = await api.post('/releases/' + releaseId + '/normalize');
+    showToast('Normalization complete! ' + res.data.suggestions.length + ' suggestions', 'success');
+    renderNormalization(res.data);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function acceptNormSuggestion(id) {
+  try {
+    await api.put('/normalization/suggestions/' + id + '/accept');
+    showToast('Suggestion accepted', 'success');
+    const res = await api.get('/releases/' + releaseId + '/normalization');
+    renderNormalization(res.data);
+    loadRelease(); // Refresh release data since fields changed
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function rejectNormSuggestion(id) {
+  try {
+    await api.put('/normalization/suggestions/' + id + '/reject');
+    showToast('Suggestion rejected', 'info');
+    const res = await api.get('/releases/' + releaseId + '/normalization');
+    renderNormalization(res.data);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function acceptAllNormalization() {
+  try {
+    const res = await api.post('/releases/' + releaseId + '/normalization/accept-all');
+    showToast(res.data.accepted + ' suggestions accepted', 'success');
+    const normRes = await api.get('/releases/' + releaseId + '/normalization');
+    renderNormalization(normRes.data);
+    loadRelease();
   } catch (err) {
     showToast(err.message, 'error');
   }

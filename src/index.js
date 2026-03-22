@@ -38,6 +38,11 @@ const { validationRouter, releaseValidationRouter } = require('./services/valida
 app.use('/api/v1/validation', validationRouter);
 app.use('/api/v1/releases', releaseValidationRouter);
 
+// Normalization engine (Phase 1B)
+const { normalizationRouter, releaseNormalizationRouter } = require('./services/normalization/normalization.routes');
+app.use('/api/v1/normalization', normalizationRouter);
+app.use('/api/v1/releases', releaseNormalizationRouter);
+
 // Artist profile
 const { getDb } = require('./database');
 app.get('/api/v1/artist', (req, res) => {
